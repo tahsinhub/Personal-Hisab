@@ -1,0 +1,145 @@
+/**
+ * Defines the structure of the FirebaseBlueprint configuration.
+ */
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and preferences",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "currency": { "type": "string", "default": "BDT" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Income": {
+      "title": "Income",
+      "description": "Record of income",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "source": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "category": { "type": "string" }
+      },
+      "required": ["userId", "amount", "source", "date"]
+    },
+    "BazarLog": {
+      "title": "Bazar Log",
+      "description": "A shopping trip record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "totalAmount": { "type": "number" },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "category": { "type": "string" },
+              "quantity": { "type": "number" },
+              "unit": { "type": "string" },
+              "unitPrice": { "type": "number" },
+              "total": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["userId", "date", "totalAmount"]
+    },
+    "Bill": {
+      "title": "Bill",
+      "description": "Monthly utility or rent bill",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "isPaid": { "type": "boolean" },
+        "paidAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "category", "amount", "month", "year"]
+    },
+    "EducationExpense": {
+      "title": "Education Expense",
+      "description": "School related expenses",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "subCategory": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "subCategory", "date"]
+    },
+    "Loan": {
+      "title": "Loan",
+      "description": "Tracking money taken or given",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "personName": { "type": "string" },
+        "type": { "type": "string", "enum": ["taken", "given"] },
+        "amount": { "type": "number" },
+        "remainingBalance": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "cleared"] },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" }
+      },
+      "required": ["userId", "personName", "type", "amount"]
+    },
+    "LoanTransaction": {
+      "title": "Loan Transaction",
+      "description": "Payments towards a loan",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "loanId": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["repayment", "addition"] }
+      },
+      "required": ["userId", "loanId", "amount", "date", "type"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/incomes/{incomeId}": {
+      "schema": "Income",
+      "description": "Income records"
+    },
+    "/bazar_logs/{logId}": {
+      "schema": "BazarLog",
+      "description": "Shopping records"
+    },
+    "/bills/{billId}": {
+      "schema": "Bill",
+      "description": "Utility bills"
+    },
+    "/education_expenses/{expId}": {
+      "schema": "EducationExpense",
+      "description": "School expenses"
+    },
+    "/loans/{loanId}": {
+      "schema": "Loan",
+      "description": "Loans tracking"
+    },
+    "/loans/{loanId}/transactions/{txId}": {
+      "schema": "LoanTransaction",
+      "description": "Transactions for a specific loan"
+    }
+  }
+}

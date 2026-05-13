@@ -1,0 +1,150 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             data.createdAt == request.time;
+    }
+
+    function isValidIncome(data) {
+      return data.keys().hasAll(['userId', 'amount', 'source', 'date', 'category']) &&
+             data.userId == request.auth.uid &&
+             data.amount is number && data.amount > 0 &&
+             data.source is string && data.source.size() <= 100 &&
+             data.category is string && data.category.size() <= 50;
+    }
+
+    function isValidBazarLog(data) {
+      return data.keys().hasAll(['userId', 'date', 'totalAmount', 'items']) &&
+             data.userId == request.auth.uid &&
+             data.totalAmount is number &&
+             data.date is timestamp &&
+             data.items is list && data.items.size() <= 50;
+    }
+
+    function isValidBill(data) {
+      return data.keys().hasAll(['userId', 'category', 'amount', 'month', 'year', 'isPaid']) &&
+             data.userId == request.auth.uid &&
+             data.amount is number && data.amount >= 0 &&
+             data.month is int && data.month >= 0 && data.month <= 11 &&
+             data.year is int && data.year > 2000 &&
+             data.category is string && data.category.size() <= 100;
+    }
+
+    function isValidEducationExpense(data) {
+      return data.keys().hasAll(['userId', 'amount', 'subCategory', 'date']) &&
+             data.userId == request.auth.uid &&
+             data.amount is number && data.amount > 0 &&
+             data.subCategory is string && data.subCategory.size() <= 100;
+    }
+
+    function isValidLoan(data) {
+      return data.keys().hasAll(['userId', 'personName', 'type', 'amount', 'remainingBalance', 'status', 'date']) &&
+             data.userId == request.auth.uid &&
+             data.personName is string && data.personName.size() <= 100 &&
+             data.type in ['taken', 'given'] &&
+             data.amount is number && data.amount > 0 &&
+             data.status in ['active', 'cleared'];
+    }
+
+    function isValidLoanTransaction(data) {
+      return data.keys().hasAll(['userId', 'loanId', 'amount', 'date', 'type']) &&
+             data.userId == request.auth.uid &&
+             data.loanId is string &&
+             data.amount is number && data.amount > 0 &&
+             data.type in ['repayment', 'addition'];
+    }
+
+    // --- Collections ---
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'currency']);
+    }
+
+    match /incomes/{incomeId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId);
+      allow create: if isSignedIn() && isValidIncome(incoming());
+      allow update: if isOwner(existing().userId) && isValidIncome(incoming());
+      allow delete: if isOwner(existing().userId);
+    }
+
+    match /bazar_logs/{logId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId);
+      allow create: if isSignedIn() && isValidBazarLog(incoming());
+      allow update: if isOwner(existing().userId) && isValidBazarLog(incoming());
+      allow delete: if isOwner(existing().userId);
+    }
+
+    match /bills/{billId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId);
+      allow create: if isSignedIn() && isValidBill(incoming());
+      allow update: if isOwner(existing().userId) && isValidBill(incoming());
+      allow delete: if isOwner(existing().userId);
+    }
+
+    match /education_expenses/{expId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId);
+      allow create: if isSignedIn() && isValidEducationExpense(incoming());
+      allow update: if isOwner(existing().userId) && isValidEducationExpense(incoming());
+      allow delete: if isOwner(existing().userId);
+    }
+
+    match /loans/{loanId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isOwner(existing().userId);
+      allow create: if isSignedIn() && isValidLoan(incoming());
+      allow update: if isOwner(existing().userId) && isValidLoan(incoming());
+      allow delete: if isOwner(existing().userId);
+
+      match /transactions/{txId} {
+        allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+        allow get: if isOwner(existing().userId);
+        allow create: if isSignedIn() && isValidLoanTransaction(incoming());
+        allow update: if isOwner(existing().userId) && isValidLoanTransaction(incoming());
+        allow delete: if isOwner(existing().userId);
+      }
+    }
+  }
+}
