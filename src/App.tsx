@@ -12,8 +12,6 @@ import {
   LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth, googleProvider, signInWithPopup, signOut } from './firebase';
 import { Dashboard } from './components/Dashboard';
 import { Bazar } from './components/Bazar';
 import { Bills } from './components/Bills';
@@ -31,43 +29,15 @@ type Tab = 'dashboard' | 'income' | 'bazar' | 'bills' | 'school' | 'loans' | 'ba
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
-  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(dataService.getAuthState().authenticated);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
 
   useEffect(() => {
     const state = dataService.getAuthState();
-    if (state.authenticated && Date.now() - state.lastAuthenticated < 1000 * 60 * 60) {
+    if (state.authenticated && Date.now() - (state.lastAuthenticated || 0) < 1000 * 60 * 60) {
       setIsUnlocked(true);
     }
   }, []);
-
-  const handleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Login failed", error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setIsUnlocked(false);
-      dataService.saveAuthState({ authenticated: false, failedAttempts: 0, lastFailedTime: 0 });
-    } catch (error) {
-      console.error("Logout failed", error);
-    }
-  };
 
   const lang = dataService.getLanguage() as 'en' | 'bn';
   const t = UI_STRINGS;
@@ -81,33 +51,6 @@ export default function App() {
     { id: 'loans', label: t.loans[lang], icon: HandCoins },
     { id: 'backup', label: t.backup[lang], icon: Database },
   ];
-
-  if (authLoading) {
-    return (
-      <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-900 p-6 overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(20,184,166,0.1),transparent)]" />
-        <Logo size={120} className="mb-12 shadow-2xl shadow-teal-500/20 relative z-10" />
-        <h1 className="text-5xl font-black text-white mb-4 tracking-tighter relative z-10">Humaid's Corner</h1>
-        <p className="text-slate-400 font-bold uppercase tracking-[0.4em] text-[10px] mb-16 relative z-10">Your Personal Growth Ledger</p>
-        
-        <button 
-          onClick={handleLogin}
-          className="bg-white text-slate-900 px-12 py-6 rounded-[32px] font-black text-xs uppercase tracking-[0.2em] flex items-center gap-4 hover:scale-105 transition-all shadow-2xl shadow-white/10 active:scale-95 relative z-10 group"
-        >
-          <img src="https://www.google.com/favicon.ico" className="w-5 h-5 group-hover:rotate-12 transition-transform" alt="Google" referrerPolicy="no-referrer" />
-          Connect with Google
-        </button>
-      </div>
-    );
-  }
 
   if (!isUnlocked) {
     return <LockScreen onUnlock={() => setIsUnlocked(true)} />;
@@ -142,21 +85,20 @@ export default function App() {
 
         <div className="pt-8 border-t border-slate-100 flex items-center gap-4 px-4">
           <div className="relative">
-            {user?.photoURL ? (
-              <img src={user.photoURL} className="w-10 h-10 rounded-xl border-2 border-white shadow-sm object-cover" alt="Profile" referrerPolicy="no-referrer" />
-            ) : (
-              <Logo size={40} className="rounded-xl border-2 border-white shadow-sm" />
-            )}
+            <Logo size={40} className="rounded-xl border-2 border-white shadow-sm" />
             <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-teal-500 rounded-full border-2 border-white" />
           </div>
           <div className="flex-1 overflow-hidden">
-             <p className="text-xs font-black text-slate-900 truncate uppercase tracking-tighter">{user?.displayName || 'Owner'}</p>
-             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{user?.email ? 'Cloud Synced' : 'Guest'}</p>
+             <p className="text-xs font-black text-slate-900 truncate uppercase tracking-tighter">Owner</p>
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Offline Mode</p>
           </div>
           <button 
-            onClick={handleLogout}
+            onClick={() => {
+              dataService.saveAuthState({ authenticated: false, failedAttempts: 0, lastFailedTime: 0 });
+              setIsUnlocked(false);
+            }}
             className="p-2 text-slate-300 hover:text-rose-500 transition-colors"
-            title="Logout"
+            title="Lock App"
           >
             <LogOut className="w-5 h-5" />
           </button>

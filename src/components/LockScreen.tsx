@@ -11,7 +11,7 @@ export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => 
   const [timeLeft, setTimeLeft] = useState(0);
 
   const CORRECT_PASSWORD = '43625391';
-  const LOCKOUT_DURATION = 5 * 60 * 1000; // 5 minutes in ms
+  const LOCKOUT_DURATION = 1 * 60 * 1000; // 1 minute in ms
   const MAX_ATTEMPTS = 2;
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => 
         if (elapsed < LOCKOUT_DURATION) {
           setTimeLeft(Math.ceil((LOCKOUT_DURATION - elapsed) / 1000));
         } else {
-          // Reset after 5 mins
+          // Reset after block duration
           const newState = { ...state, failedAttempts: 0 };
           dataService.saveAuthState(newState);
           setAuthState(newState);
@@ -53,7 +53,7 @@ export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => 
       };
       dataService.saveAuthState(newState);
       setAuthState(newState);
-      setError(newAttempts >= MAX_ATTEMPTS ? 'Too many attempts. Blocked for 5 mins.' : 'Incorrect password');
+      setError(newAttempts >= MAX_ATTEMPTS ? 'Access Blocked for 1 minute' : 'Incorrect password');
       setPassword('');
     }
   };

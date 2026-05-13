@@ -18,22 +18,41 @@ import { dataService } from '../services/dataService';
 
 export const Bazar: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedItems, setSelectedItems] = useState<BazarItem[]>([]);
+  const [customItems, setCustomItems] = useState<any[]>([]);
   const [history, setHistory] = useState<BazarLog[]>([]);
-  const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'history' | 'settings'>('new');
   const [isSaving, setIsSaving] = useState(false);
+  const [newItemForm, setNewItemForm] = useState({ name: '', bn: '', category: 'Vegetables', unit: 'kg' });
+  const [showAddForm, setShowAddForm] = useState(false);
+
   const lang = dataService.getLanguage() as 'en' | 'bn';
   const t = UI_STRINGS;
 
   useEffect(() => {
-    const unsub = dataService.subscribeToCollection<BazarLog>('bazar_logs', setHistory);
-    return () => unsub && unsub();
+    const unsubHistory = dataService.subscribeToCollection<BazarLog>('bazar_logs', setHistory);
+    const unsubItems = dataService.subscribeToCollection<any>('custom_bazar_items', setCustomItems);
+    return () => {
+      unsubHistory && unsubHistory();
+      unsubItems && unsubItems();
+    };
   }, []);
 
-  const filteredItems = PRELOADED_BAZAR_ITEMS.filter(item => 
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.bn && item.bn.includes(searchTerm))
-  );
+  useEffect(() => {
+    if (selectedCategory !== 'All') {
+      setNewItemForm(prev => ({ ...prev, category: selectedCategory }));
+    }
+  }, [selectedCategory]);
+
+  const allAvailableItems = [...PRELOADED_BAZAR_ITEMS, ...customItems];
+
+  const filteredItems = allAvailableItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (item.bn && item.bn.includes(searchTerm));
+    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   const addItemToCart = (item: any) => {
     const existing = selectedItems.find(i => i.name === item.name);
@@ -47,6 +66,13 @@ export const Bazar: React.FC = () => {
         { ...item, quantity: 1, unitPrice: 0, total: 0 }
       ]);
     }
+  };
+
+  const handleAddNewItem = async () => {
+    if (!newItemForm.name) return;
+    await dataService.addDocument('custom_bazar_items', newItemForm);
+    setNewItemForm({ name: '', bn: '', category: 'Vegetables', unit: 'kg' });
+    setShowAddForm(false);
   };
 
   const updateItem = (name: string, updates: Partial<BazarItem>) => {
@@ -111,6 +137,15 @@ export const Bazar: React.FC = () => {
           >
             {lang === 'en' ? 'History' : 'পূর্বের তালিকা'}
           </button>
+          <button 
+            onClick={() => setActiveTab('settings')}
+            className={cn(
+              "px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+              activeTab === 'settings' ? "bg-teal-600 text-white shadow-lg shadow-teal-100" : "text-slate-400 hover:text-slate-600"
+            )}
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
@@ -118,19 +153,52 @@ export const Bazar: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Item Selector */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="relative">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
-              <input 
-                type="text"
-                placeholder={lang === 'en' ? "Search items (Potato, Onion...)" : "খুঁজুন (আলু, পেঁয়াজ...)"}
-                className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all font-bold outline-none shadow-sm"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" />
+                <input 
+                  type="text"
+                  placeholder={lang === 'en' ? "Search items..." : "খুঁজুন..."}
+                  className="w-full bg-white border border-slate-200 rounded-3xl py-5 pl-14 pr-6 focus:ring-4 focus:ring-teal-500/10 focus:border-teal-500 transition-all font-bold outline-none shadow-sm"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <button 
+                onClick={() => setActiveTab('settings')}
+                className="p-5 bg-white border border-slate-200 rounded-[28px] text-teal-600 hover:bg-teal-50 transition-all shadow-sm"
+                title={lang === 'en' ? "Add Custom Item" : "নতুন আইটেম যোগ করুন"}
+              >
+                <PlusCircle className="w-6 h-6" />
+              </button>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {filteredItems.slice(0, 15).map((item) => (
+            <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar no-scrollbar">
+              <button
+                onClick={() => setSelectedCategory('All')}
+                className={cn(
+                  "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border",
+                  selectedCategory === 'All' ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-400 border-slate-100 hover:border-slate-200"
+                )}
+              >
+                {lang === 'en' ? 'All' : 'সব'}
+              </button>
+              {BAZAR_CATEGORIES.map(cat => (
+                <button
+                  key={cat.en}
+                  onClick={() => setSelectedCategory(cat.en)}
+                  className={cn(
+                    "px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all border",
+                    selectedCategory === cat.en ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-400 border-slate-100 hover:border-slate-200"
+                  )}
+                >
+                  {cat[lang]}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+              {filteredItems.map((item) => (
                 <button
                   key={item.name}
                   onClick={() => addItemToCart(item)}
@@ -146,6 +214,32 @@ export const Bazar: React.FC = () => {
                   </div>
                 </button>
               ))}
+
+              <button
+                onClick={() => setActiveTab('settings')}
+                className="p-4 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl text-center hover:border-teal-500 hover:bg-teal-50 group transition-all"
+              >
+                <div className="flex flex-col items-center justify-center gap-1">
+                  <PlusCircle className="w-6 h-6 text-slate-300 group-hover:text-teal-500 transition-colors" />
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest group-hover:text-teal-600">
+                    {lang === 'en' ? 'Add Others' : 'অন্যান্য যোগ করুন'}
+                  </p>
+                </div>
+              </button>
+
+              {filteredItems.length === 0 && (
+                <div className="col-span-full py-12 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                   <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">
+                     {lang === 'en' ? `No ${selectedCategory === 'All' ? '' : selectedCategory} items found` : `কোনো ${selectedCategory === 'All' ? '' : BAZAR_CATEGORIES.find(c => c.en === selectedCategory)?.[lang]} খুঁজে পাওয়া যায়নি`}
+                   </p>
+                   <button 
+                     onClick={() => setActiveTab('settings')}
+                     className="mt-4 px-6 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-teal-600 transition-all"
+                   >
+                     {lang === 'en' ? 'Add to list' : 'তালিকায় যোগ করুন'}
+                   </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -245,6 +339,113 @@ export const Bazar: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+      ) : activeTab === 'settings' ? (
+        /* Settings / Add New Item View */
+        <div className="max-w-2xl mx-auto w-full">
+           <div className="bg-white rounded-[40px] p-8 md:p-12 border border-slate-100 shadow-sm">
+             <div className="flex items-center gap-4 mb-10">
+               <div className="p-4 bg-teal-50 text-teal-600 rounded-3xl">
+                 <PlusCircle className="w-8 h-8" />
+               </div>
+               <div>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+                    {lang === 'en' ? 'Add New Product' : 'নতুন পণ্য যোগ করুন'}
+                  </h3>
+                  <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">
+                    {lang === 'en' ? 'Expand your market list' : 'আপনার বাজারের তালিকা বড় করুন'}
+                  </p>
+               </div>
+             </div>
+
+             <div className="space-y-6">
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Name (English)</label>
+                   <input 
+                     type="text"
+                     placeholder="e.g. Brokkoli"
+                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-teal-500 transition-all"
+                     value={newItemForm.name}
+                     onChange={e => setNewItemForm({...newItemForm, name: e.target.value})}
+                   />
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Name (Bengali)</label>
+                   <input 
+                     type="text"
+                     placeholder="উদাঃ ব্রকলি"
+                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-teal-500 transition-all"
+                     value={newItemForm.bn}
+                     onChange={e => setNewItemForm({...newItemForm, bn: e.target.value})}
+                   />
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Category</label>
+                   <select 
+                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold outline-none appearance-none"
+                     value={newItemForm.category}
+                     onChange={e => setNewItemForm({...newItemForm, category: e.target.value})}
+                   >
+                     {BAZAR_CATEGORIES.map(cat => (
+                       <option key={cat.en} value={cat.en}>{cat[lang]}</option>
+                     ))}
+                   </select>
+                 </div>
+                 <div className="space-y-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">Default Unit</label>
+                   <select 
+                     className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 font-bold outline-none appearance-none"
+                     value={newItemForm.unit}
+                     onChange={e => setNewItemForm({...newItemForm, unit: e.target.value})}
+                   >
+                     <option value="kg">kg</option>
+                     <option value="gram">gram</option>
+                     <option value="piece">piece</option>
+                     <option value="dozen">dozen</option>
+                     <option value="packet">packet</option>
+                     <option value="litre">litre</option>
+                     <option value="bundle">bundle</option>
+                   </select>
+                 </div>
+               </div>
+
+               <button 
+                 onClick={handleAddNewItem}
+                 disabled={!newItemForm.name}
+                 className="w-full bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 text-white font-black py-5 rounded-3xl transition-all shadow-xl shadow-slate-100 uppercase tracking-widest text-xs mt-4"
+               >
+                 {lang === 'en' ? 'Add to Permanent List' : 'স্থায়ী তালিকায় যোগ করুন'}
+               </button>
+             </div>
+
+             <div className="mt-12 pt-12 border-t border-slate-100">
+                <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6">Your Custom Items</h4>
+                <div className="space-y-3">
+                   {customItems.length === 0 ? (
+                      <p className="text-[10px] text-slate-400 font-bold italic">No custom items added yet</p>
+                   ) : (
+                      customItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                           <div>
+                              <p className="font-black text-slate-900 text-sm">{item[lang] || item.name}</p>
+                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">{item.category} • {item.unit}</p>
+                           </div>
+                           <button 
+                             onClick={() => dataService.deleteDocument('custom_bazar_items', item.id)}
+                             className="text-rose-500 hover:bg-rose-50 p-2 rounded-xl transition-all"
+                           >
+                              <Trash2 className="w-4 h-4" />
+                           </button>
+                        </div>
+                      ))
+                   )}
+                </div>
+             </div>
+           </div>
         </div>
       ) : (
         /* History View */

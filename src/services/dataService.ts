@@ -1,173 +1,100 @@
-
-import { 
-  collection, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  doc, 
-  query, 
-  where, 
-  onSnapshot,
-  getDocs,
-  Timestamp,
-  orderBy
-} from 'firebase/firestore';
-import { db, auth } from '../firebase';
 import { BazarLog, Bill, EducationExpense, Loan, Income } from '../types';
 
-type StorageKey = 'incomes' | 'bazar_logs' | 'bills' | 'education_expenses' | 'loans';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
+type StorageKey = 'incomes' | 'bazar_logs' | 'bills' | 'education_expenses' | 'loans' | 'custom_bazar_items';
 
 export const dataService = {
+  // Simple state management via listeners
+  listeners: {} as Record<string, ((data: any) => void)[]>,
+
   subscribeToCollection: <T>(key: StorageKey, callback: (data: T[]) => void) => {
-    if (!auth.currentUser) {
-      callback([]);
-      return () => {};
+    if (!dataService.listeners[key]) {
+      dataService.listeners[key] = [];
     }
+    dataService.listeners[key].push(callback);
 
-    const q = query(
-      collection(db, key), 
-      where('userId', '==', auth.currentUser.uid),
-      orderBy('date', 'desc')
-    );
+    // Initial load
+    const data = dataService.getRawCollection<T>(key);
+    callback(data);
 
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        const data = snapshot.docs.map(doc => {
-          const item = { id: doc.id, ...doc.data() } as any;
-          // Handle Firebase Timestamps
-          if (item.date instanceof Timestamp) item.date = item.date.toDate();
-          if (item.paidAt instanceof Timestamp) item.paidAt = item.paidAt.toDate();
-          return item;
-        });
-        callback(data);
-      },
-      (error) => {
-        handleFirestoreError(error, OperationType.GET, key);
-      }
-    );
-
-    return unsubscribe;
+    // Return unsubscribe
+    return () => {
+      dataService.listeners[key] = dataService.listeners[key].filter((cb: any) => cb !== callback);
+    };
   },
 
-  addDocument: async <T extends { id?: string }>(key: StorageKey, data: any) => {
-    if (!auth.currentUser) throw new Error('Not authenticated');
-    
-    const payload = {
-      ...data,
-      userId: auth.currentUser.uid,
-      createdAt: new Date(),
-    };
-
+  getRawCollection: <T>(key: StorageKey): T[] => {
+    const raw = localStorage.getItem(`humaid_corner_${key}`);
+    if (!raw) return [];
     try {
-      const docRef = await addDoc(collection(db, key), payload);
-      return docRef.id;
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, key);
+      return JSON.parse(raw).map((item: any) => {
+        // Convert date strings back to objects if they look like dates
+        if (item.date && typeof item.date === 'string') item.date = new Date(item.date);
+        if (item.paidAt && typeof item.paidAt === 'string') item.paidAt = new Date(item.paidAt);
+        return item;
+      });
+    } catch (e) {
+      console.error('Failed to parse storage', e);
+      return [];
     }
+  },
+
+  saveCollection: <T>(key: StorageKey, data: T[]) => {
+    localStorage.setItem(`humaid_corner_${key}`, JSON.stringify(data));
+    // Notify listeners
+    if (dataService.listeners && dataService.listeners[key]) {
+      dataService.listeners[key].forEach((cb: any) => cb(data));
+    }
+  },
+
+  addDocument: async <T extends { id?: string }>(key: StorageKey, data: T) => {
+    const collection = dataService.getRawCollection<T>(key);
+    const newDoc = { ...data, id: Date.now().toString() };
+    collection.unshift(newDoc); // Add to beginning (desc)
+    dataService.saveCollection(key, collection);
+    return newDoc.id;
   },
 
   updateDocument: async (key: StorageKey, id: string, data: any) => {
-    try {
-      const docRef = doc(db, key, id);
-      await updateDoc(docRef, { ...data, updatedAt: new Date() });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `${key}/${id}`);
+    const collection = dataService.getRawCollection<any>(key);
+    const index = collection.findIndex(item => item.id === id);
+    if (index !== -1) {
+      collection[index] = { ...collection[index], ...data };
+      dataService.saveCollection(key, collection);
     }
   },
 
   deleteDocument: async (key: StorageKey, id: string) => {
-    try {
-      await deleteDoc(doc(db, key, id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${key}/${id}`);
-    }
+    const collection = dataService.getRawCollection<any>(key);
+    const filtered = collection.filter(item => item.id !== id);
+    dataService.saveCollection(key, filtered);
   },
 
-  // Backup & Restore for Firestore
-  exportData: async () => {
-    if (!auth.currentUser) return;
-    const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans'];
+  // Backup & Restore
+  exportData: () => {
+    const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items'];
     const backup: Record<string, any> = {};
+    keys.forEach(k => {
+      backup[k] = dataService.getRawCollection(k);
+    });
     
-    try {
-      for (const key of keys) {
-        const q = query(collection(db, key), where('userId', '==', auth.currentUser.uid));
-        const snapshot = await getDocs(q);
-        backup[key] = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-      }
-      
-      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `humaid_corner_cloud_backup_${new Date().toISOString().split('T')[0]}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export failed', error);
-    }
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `humaid_corner_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   },
 
-  importData: async (jsonString: string) => {
-    if (!auth.currentUser) return false;
+  importData: (jsonString: string) => {
     try {
       const backup = JSON.parse(jsonString);
-      const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans'];
-      
-      for (const key of keys) {
-        if (backup[key] && Array.isArray(backup[key])) {
-          for (const item of backup[key]) {
-            // Remove existing ID and userId to avoid conflicts, then add new with current user context
-            const { id, userId, ...rest } = item;
-            await dataService.addDocument(key as StorageKey, rest);
-          }
+      const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items'];
+      keys.forEach(k => {
+        if (backup[k]) {
+          dataService.saveCollection(k, backup[k]);
         }
-      }
+      });
       return true;
     } catch (e) {
       console.error('Import failed', e);
@@ -175,22 +102,19 @@ export const dataService = {
     }
   },
 
-  // Auth & Language State (Still local or moved to Auth)
+  // Auth & Language State
   getAuthState: () => {
     const state = localStorage.getItem('humaid_corner_auth_state');
     return state ? JSON.parse(state) : { authenticated: false, failedAttempts: 0, lastFailedTime: 0 };
   },
 
   saveAuthState: (state: any) => {
-    localStorage.setItem('humaid_corner_auth_state', JSON.stringify(state));
+    localStorage.setItem('humaid_corner_auth_state', JSON.stringify({
+      ...state,
+      lastAuthenticated: Date.now()
+    }));
   },
 
-  getLanguage: () => {
-    return localStorage.getItem('humaid_corner_lang') || 'en';
-  },
-
-  setLanguage: (lang: string) => {
-    localStorage.setItem('humaid_corner_lang', lang);
-    window.location.reload();
-  }
+  getLanguage: () => localStorage.getItem('humaid_corner_lang') || 'en',
+  setLanguage: (lang: string) => localStorage.setItem('humaid_corner_lang', lang),
 };
