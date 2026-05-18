@@ -9,7 +9,8 @@ import {
   ArrowUpCircle,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Dashboard } from './components/Dashboard';
@@ -19,13 +20,14 @@ import { Education } from './components/Education';
 import { Loans } from './components/Loans';
 import { Incomes } from './components/Incomes';
 import { Backup } from './components/Backup';
+import Business from './components/Business';
 import { LockScreen } from './components/LockScreen';
 import { Logo } from './components/Logo';
 import { cn } from './lib/utils';
 import { dataService } from './services/dataService';
 import { UI_STRINGS } from './constants';
 
-type Tab = 'dashboard' | 'income' | 'bazar' | 'bills' | 'school' | 'loans' | 'backup';
+type Tab = 'dashboard' | 'income' | 'bazar' | 'bills' | 'school' | 'loans' | 'backup' | 'business';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
@@ -44,6 +46,7 @@ export default function App() {
 
   const tabs: { id: Tab; label: string; icon: any }[] = [
     { id: 'dashboard', label: t.dashboard[lang], icon: LayoutDashboard },
+    { id: 'business', label: t.business[lang], icon: Briefcase },
     { id: 'income', label: t.income[lang], icon: ArrowUpCircle },
     { id: 'bazar', label: t.bazar[lang], icon: ShoppingCart },
     { id: 'bills', label: t.bills[lang], icon: ReceiptText },
@@ -184,6 +187,7 @@ export default function App() {
               {activeTab === 'school' && <Education />}
               {activeTab === 'loans' && <Loans />}
               {activeTab === 'backup' && <Backup />}
+              {activeTab === 'business' && <Business />}
             </motion.div>
           </AnimatePresence>
         </div>

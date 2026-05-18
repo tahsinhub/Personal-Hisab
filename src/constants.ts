@@ -254,4 +254,14 @@ export const UI_STRINGS = {
   remarks: { en: "Remarks", bn: "মন্তব্য" },
   save: { en: "Save", bn: "সংরক্ষণ করুন" },
   cancel: { en: "Cancel", bn: "বাতিল করুন" },
+  business: { en: "Business", bn: "ব্যবসা" },
 };
+
+export const BUSINESS_PRODUCTS = [
+  { id: "1", name: "Meparfluthrin Liquid", bn: "মেপারফ্লুথ্রিন লিকুইড" },
+  { id: "2", name: "Meparfluthrin Semi Solid (Ice)", bn: "মেপারফ্লুথ্রিন সেমি সলিড (আইস)" },
+  { id: "3", name: "Meparfluthrin Full Solid (Full Ice)", bn: "মেপারফ্লুথ্রিন ফুল সলিড (ফুল আইস)" },
+  { id: "4", name: "Dimofluthirin", bn: "ডিমোফ্লুথ্রিন" },
+];
+
+export const BUSINESS_UNITS = ["ml", "kg", "drum", "litre"];

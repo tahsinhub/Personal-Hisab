@@ -1,6 +1,6 @@
 import { BazarLog, Bill, EducationExpense, Loan, Income } from '../types';
 
-type StorageKey = 'incomes' | 'bazar_logs' | 'bills' | 'education_expenses' | 'loans' | 'custom_bazar_items';
+type StorageKey = 'incomes' | 'bazar_logs' | 'bills' | 'education_expenses' | 'loans' | 'custom_bazar_items' | 'business_customers' | 'business_sales' | 'business_products' | 'activity_logs';
 
 export const dataService = {
   // Simple state management via listeners
@@ -29,7 +29,9 @@ export const dataService = {
       return JSON.parse(raw).map((item: any) => {
         // Convert date strings back to objects if they look like dates
         if (item.date && typeof item.date === 'string') item.date = new Date(item.date);
+        if (item.createdAt && typeof item.createdAt === 'string') item.createdAt = new Date(item.createdAt);
         if (item.paidAt && typeof item.paidAt === 'string') item.paidAt = new Date(item.paidAt);
+        if (item.timestamp && typeof item.timestamp === 'string') item.timestamp = new Date(item.timestamp);
         return item;
       });
     } catch (e) {
@@ -69,9 +71,22 @@ export const dataService = {
     dataService.saveCollection(key, filtered);
   },
 
+  logActivity: async (action: 'create' | 'update' | 'delete', module: string, details: string) => {
+    const log = {
+      id: Date.now().toString(),
+      action,
+      module,
+      details,
+      timestamp: new Date()
+    };
+    const logs = dataService.getRawCollection<any>('activity_logs');
+    logs.unshift(log);
+    dataService.saveCollection('activity_logs', logs.slice(0, 100)); // Keep last 100 logs
+  },
+
   // Backup & Restore
   exportData: () => {
-    const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items'];
+    const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items', 'business_customers', 'business_sales', 'business_products', 'activity_logs'];
     const backup: Record<string, any> = {};
     keys.forEach(k => {
       backup[k] = dataService.getRawCollection(k);
@@ -89,7 +104,7 @@ export const dataService = {
   importData: (jsonString: string) => {
     try {
       const backup = JSON.parse(jsonString);
-      const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items'];
+      const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items', 'business_customers', 'business_sales', 'business_products', 'activity_logs'];
       keys.forEach(k => {
         if (backup[k]) {
           dataService.saveCollection(k, backup[k]);

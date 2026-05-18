@@ -79,3 +79,47 @@ export interface LoanTransaction {
   type: 'repayment' | 'addition';
   remarks?: string;
 }
+
+export interface BusinessCustomer {
+  id: string;
+  name: string;
+  whatsapp?: string;
+  totalDue: number;
+  createdAt: Date;
+}
+
+export interface BusinessProduct {
+  id: string;
+  name: string;
+  bn?: string;
+  stock?: number;
+  unit: string;
+}
+
+export interface BusinessSale {
+  id: string;
+  customerId: string;
+  customerName: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  buyPrice?: number;
+  salePrice: number;
+  totalAmount: number;
+  paidAmount: number;
+  dueAmount: number;
+  paymentMethod?: 'Cash' | 'Bank' | 'Mobile Banking';
+  date: Date;
+  adjustmentQuantity?: number; // Sample/Return quantity
+  adjustmentAmount?: number;   // Deduction amount
+  remarks?: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  action: 'create' | 'update' | 'delete';
+  module: string;
+  details: string;
+  timestamp: Date;
+}
