@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   TrendingUp, 
@@ -23,7 +23,8 @@ import {
   Printer,
   Building2,
   Smartphone,
-  FileText
+  FileText,
+  ChevronLeft
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { BusinessCustomer, BusinessSale, BusinessProduct, ActivityLog } from '../types';
@@ -50,6 +51,15 @@ const Business = () => {
   const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
   const [restockAmount, setRestockAmount] = useState({ quantity: 1, unit: 'drum' });
   
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const unitsRef = useRef<HTMLDivElement>(null);
+
+  const scrollContainer = (ref: React.RefObject<HTMLDivElement | null>, direction: 'left' | 'right') => {
+    if (ref.current) {
+      const scrollAmount = 200;
+      ref.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+  };
   const [newSale, setNewSale] = useState<Partial<BusinessSale>>({
     productId: '',
     productName: '',
@@ -363,51 +373,69 @@ const Business = () => {
 
       {/* Tabs & Search */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-        <div className="flex bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto">
-          <button 
-            onClick={() => setActiveTab('sales')}
-            className={cn(
-              "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeTab === 'sales' ? "bg-teal-600 text-white shadow-lg shadow-teal-100" : "text-slate-400 hover:text-slate-600"
-            )}
+        <div className="relative group w-full md:w-auto overflow-hidden">
+          <div 
+            ref={tabsRef}
+            className="flex bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm w-full md:w-auto overflow-x-auto no-scrollbar scroll-smooth"
           >
-            {lang === 'en' ? 'Sales' : 'বিক্রয়'}
+            <button 
+              onClick={() => setActiveTab('sales')}
+              className={cn(
+                "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                activeTab === 'sales' ? "bg-teal-600 text-white shadow-lg shadow-teal-100" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              {lang === 'en' ? 'Sales' : 'বিক্রয়'}
+            </button>
+            <button 
+              onClick={() => setActiveTab('due')}
+              className={cn(
+                "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                activeTab === 'due' ? "bg-rose-600 text-white shadow-lg shadow-rose-100" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              {lang === 'en' ? 'Due' : 'বকেয়া'}
+            </button>
+            <button 
+              onClick={() => setActiveTab('customers')}
+              className={cn(
+                "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                activeTab === 'customers' ? "bg-blue-600 text-white shadow-lg shadow-blue-100" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              {lang === 'en' ? 'Customers' : 'কাস্টমার'}
+            </button>
+            <button 
+              onClick={() => setActiveTab('stock')}
+              className={cn(
+                "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                activeTab === 'stock' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              {lang === 'en' ? 'Stock' : 'স্টক'}
+            </button>
+            <button 
+              onClick={() => setActiveTab('logs')}
+              className={cn(
+                "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                activeTab === 'logs' ? "bg-slate-900 text-white shadow-lg shadow-slate-100" : "text-slate-400 hover:text-slate-600"
+              )}
+            >
+              {lang === 'en' ? 'Logs' : 'লগ'}
+            </button>
+          </div>
+          
+          <button 
+            onClick={() => scrollContainer(tabsRef, 'left')}
+            className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/90 p-2 md:hidden shadow-lg border border-slate-100 rounded-full"
+          >
+            <ChevronLeft className="w-4 h-4 text-slate-400" />
           </button>
           <button 
-            onClick={() => setActiveTab('due')}
-            className={cn(
-              "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeTab === 'due' ? "bg-rose-600 text-white shadow-lg shadow-rose-100" : "text-slate-400 hover:text-slate-600"
-            )}
+            onClick={() => scrollContainer(tabsRef, 'right')}
+            className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/90 p-2 md:hidden shadow-lg border border-slate-100 rounded-full"
           >
-            {lang === 'en' ? 'Due' : 'বকেয়া'}
-          </button>
-          <button 
-            onClick={() => setActiveTab('customers')}
-            className={cn(
-              "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeTab === 'customers' ? "bg-blue-600 text-white shadow-lg shadow-blue-100" : "text-slate-400 hover:text-slate-600"
-            )}
-          >
-            {lang === 'en' ? 'Customers' : 'কাস্টমার'}
-          </button>
-          <button 
-            onClick={() => setActiveTab('stock')}
-            className={cn(
-              "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeTab === 'stock' ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "text-slate-400 hover:text-slate-600"
-            )}
-          >
-            {lang === 'en' ? 'Stock' : 'স্টক'}
-          </button>
-          <button 
-            onClick={() => setActiveTab('logs')}
-            className={cn(
-              "flex-1 md:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-              activeTab === 'logs' ? "bg-slate-900 text-white shadow-lg shadow-slate-100" : "text-slate-400 hover:text-slate-600"
-            )}
-          >
-            {lang === 'en' ? 'Logs' : 'লগ'}
+            <ChevronRight className="w-4 h-4 text-slate-400" />
           </button>
         </div>
 
@@ -438,19 +466,37 @@ const Business = () => {
       {/* Unit Sorting / Filtering & Date Filters */}
       {activeTab === 'sales' && (
         <div className="flex flex-col gap-4 no-print">
-          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-            {['All', ...BUSINESS_UNITS].map(unit => (
-              <button
-                key={unit}
-                onClick={() => setFilterUnit(unit)}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
-                  filterUnit === unit ? "bg-slate-900 text-white" : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
-                )}
-              >
-                {unit === 'All' ? (lang === 'en' ? 'All Units' : 'সব ইউনিট') : unit}
-              </button>
-            ))}
+          <div className="relative overflow-hidden group">
+            <div 
+              ref={unitsRef}
+              className="flex gap-2 overflow-x-auto pb-2 no-scrollbar scroll-smooth"
+            >
+              {['All', ...BUSINESS_UNITS].map(unit => (
+                <button
+                  key={unit}
+                  onClick={() => setFilterUnit(unit)}
+                  className={cn(
+                    "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                    filterUnit === unit ? "bg-slate-900 text-white" : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                  )}
+                >
+                  {unit === 'All' ? (lang === 'en' ? 'All Units' : 'সব ইউনিট') : unit}
+                </button>
+              ))}
+            </div>
+            
+            <button 
+              onClick={() => scrollContainer(unitsRef, 'left')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 bg-white/90 p-1.5 md:hidden shadow border border-slate-100 rounded-full"
+            >
+              <ChevronLeft className="w-3 h-3 text-slate-400" />
+            </button>
+            <button 
+              onClick={() => scrollContainer(unitsRef, 'right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 bg-white/90 p-1.5 md:hidden shadow border border-slate-100 rounded-full"
+            >
+              <ChevronRight className="w-3 h-3 text-slate-400" />
+            </button>
           </div>
           
           <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-[28px] border border-slate-100 shadow-sm">
@@ -768,9 +814,15 @@ const Business = () => {
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
-              className="relative w-full max-w-lg bg-white rounded-[40px] shadow-2xl p-8 overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
+              className="relative w-full max-w-lg bg-white rounded-[40px] shadow-2xl p-6 md:p-8 overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
             >
               <div className="flex items-center gap-4 mb-8">
+                <button 
+                  onClick={() => setShowAddSale(false)}
+                  className="md:hidden p-2 -ml-2 text-slate-400 bg-slate-50 border border-slate-100 rounded-xl"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
                 <div className="p-4 bg-teal-50 text-teal-600 rounded-3xl">
                   <TrendingUp className="w-6 h-6" />
                 </div>
@@ -996,9 +1048,15 @@ const Business = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-md bg-white rounded-[40px] shadow-2xl p-8"
+              className="relative w-full max-w-md bg-white rounded-[40px] shadow-2xl p-6 md:p-8"
             >
               <div className="flex items-center gap-4 mb-8">
+                <button 
+                  onClick={() => setShowAddCustomer(false)}
+                  className="md:hidden p-2 -ml-2 text-slate-400 bg-slate-50 border border-slate-100 rounded-xl"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
                 <div className="p-4 bg-blue-50 text-blue-600 rounded-3xl">
                   <UserPlus className="w-6 h-6" />
                 </div>
@@ -1067,9 +1125,15 @@ const Business = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-md bg-white rounded-[40px] shadow-2xl p-8"
+              className="relative w-full max-w-md bg-white rounded-[40px] shadow-2xl p-6 md:p-8"
             >
               <div className="flex items-center gap-4 mb-8">
+                <button 
+                  onClick={() => setShowAddProduct(false)}
+                  className="md:hidden p-2 -ml-2 text-slate-400 bg-slate-50 border border-slate-100 rounded-xl"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
                 <div className="p-4 bg-indigo-50 text-indigo-600 rounded-3xl">
                   <Package className="w-6 h-6" />
                 </div>
@@ -1140,9 +1204,15 @@ const Business = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-sm bg-white rounded-[40px] shadow-2xl p-8"
+              className="relative w-full max-w-sm bg-white rounded-[40px] shadow-2xl p-6 md:p-8"
             >
               <div className="flex items-center gap-4 mb-8">
+                <button 
+                  onClick={() => setShowRestock(null)}
+                  className="md:hidden p-2 -ml-2 text-slate-400 bg-slate-50 border border-slate-100 rounded-xl"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
                 <div className="p-4 bg-indigo-50 text-indigo-600 rounded-3xl">
                   <ArrowDownCircle className="w-6 h-6" />
                 </div>
@@ -1210,15 +1280,21 @@ const Business = () => {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl p-8 max-h-[85vh] overflow-hidden flex flex-col"
+              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl p-6 md:p-8 max-h-[90vh] overflow-hidden flex flex-col"
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-2xl">
+                  <button 
+                    onClick={() => setSelectedCustomerId(null)}
+                    className="md:hidden p-2 -ml-2 text-slate-400 bg-slate-50 border border-slate-100 rounded-xl"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="w-12 h-12 md:w-16 md:h-16 rounded-3xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl md:text-2xl">
                     {customers.find(c => c.id === selectedCustomerId)?.name[0].toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">{customers.find(c => c.id === selectedCustomerId)?.name}</h3>
+                    <h3 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">{customers.find(c => c.id === selectedCustomerId)?.name}</h3>
                     <div className="flex items-center gap-4">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'en' ? 'Sales History' : 'বিক্রয় ইতিহাস'}</p>
                       <button 

@@ -4,13 +4,17 @@ import { Lock, ShieldAlert, Clock } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { Logo } from './Logo';
 
-export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => {
+export const LockScreen: React.FC<{ 
+  onUnlock: () => void; 
+  expectedPassword: string;
+  title: string;
+  subtitle?: string;
+}> = ({ onUnlock, expectedPassword, title, subtitle }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [authState, setAuthState] = useState(dataService.getAuthState());
   const [timeLeft, setTimeLeft] = useState(0);
 
-  const CORRECT_PASSWORD = '43625391';
   const LOCKOUT_DURATION = 1 * 60 * 1000; // 1 minute in ms
   const MAX_ATTEMPTS = 2;
 
@@ -40,9 +44,7 @@ export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => 
 
     if (timeLeft > 0) return;
 
-    if (password === CORRECT_PASSWORD) {
-      const newState = { authenticated: true, failedAttempts: 0, lastFailedTime: 0 };
-      dataService.saveAuthState(newState);
+    if (password === expectedPassword) {
       onUnlock();
     } else {
       const newAttempts = authState.failedAttempts + 1;
@@ -75,8 +77,8 @@ export const LockScreen: React.FC<{ onUnlock: () => void }> = ({ onUnlock }) => 
           <Logo size={80} />
         </div>
 
-        <h1 className="text-3xl font-black text-white mb-2">Humaid's Corner</h1>
-        <p className="text-slate-400 mb-10 font-bold uppercase tracking-widest text-xs">Security Lock</p>
+        <h1 className="text-3xl font-black text-white mb-2">{title}</h1>
+        <p className="text-slate-400 mb-10 font-bold uppercase tracking-widest text-xs">{subtitle || 'Security Lock'}</p>
 
         {timeLeft > 0 ? (
           <div className="bg-rose-500/10 border border-rose-500/20 rounded-3xl p-8 mb-4">

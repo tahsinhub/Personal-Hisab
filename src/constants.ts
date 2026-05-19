@@ -4,6 +4,7 @@ export const BAZAR_CATEGORIES = [
   { en: "Grocery", bn: "মুদি" },
   { en: "Crockery", bn: "ক্রোকারিজ" },
   { en: "Fruit", bn: "ফলসমূহ" },
+  { en: "Utilities", bn: "ইউটিলিটি ও বিল" },
   { en: "Others", bn: "অন্যান্য" }
 ];
 
@@ -118,6 +119,18 @@ export const PRELOADED_BAZAR_ITEMS = [
   { name: "Tissue Paper", bn: "টিস্যু পেপার", category: "Grocery", unit: "packet" },
   { name: "Matches", bn: "দিয়াশলাই", category: "Grocery", unit: "box" },
 
+  // Utilities & Bills
+  { name: "House Rent", bn: "বাসা ভাড়া", category: "Utilities", unit: "month" },
+  { name: "Internet Bill", bn: "ইন্টারনেট বিল", category: "Utilities", unit: "month" },
+  { name: "Mobile Recharge", bn: "মোবাইল রিচার্জ", category: "Utilities", unit: "taka" },
+  { name: "Electricity Bill", bn: "বিদ্যুৎ বিল", category: "Utilities", unit: "month" },
+  { name: "Water Bill", bn: "পানির বিল", category: "Utilities", unit: "month" },
+  { name: "Gas Bill", bn: "গ্যাস বিল", category: "Utilities", unit: "month" },
+  { name: "Garbage Bill", bn: "ময়লার বিল", category: "Utilities", unit: "month" },
+  { name: "Maid Salary", bn: "কাজের বুয়ার বিল", category: "Utilities", unit: "month" },
+  { name: "Service Charge", bn: "সার্ভিস চার্জ", category: "Utilities", unit: "month" },
+  { name: "Dish Bill", bn: "ডিশ বিল", category: "Utilities", unit: "month" },
+
   // Crockery & Kitchenware
   { name: "Plate (Melamine)", bn: "মেলামাইন প্লেট", category: "Crockery", unit: "piece" },
   { name: "Plate (Ceramic)", bn: "সিরামিক প্লেট", category: "Crockery", unit: "piece" },
@@ -201,6 +214,9 @@ export const BILL_CATEGORIES = [
   { en: "Gas", bn: "গ্যাস বিল" },
   { en: "Water", bn: "পানির বিল" },
   { en: "Internet", bn: "ইন্টারনেট বিল" },
+  { en: "Mobile Recharge", bn: "মোবাইল রিচার্জ" },
+  { en: "Garbage Bill", bn: "ময়লার বিল" },
+  { en: "Maid Salary", bn: "কাজের বুয়ার বিল" },
   { en: "Direct TV/Dish", bn: "ডিশ বিল" },
   { en: "Service Charge", bn: "সার্ভিস চার্জ" }
 ];
@@ -241,7 +257,11 @@ export const MONTHS = [
 
 export const UI_STRINGS = {
   dashboard: { en: "Dashboard", bn: "ড্যাশবোর্ড" },
-  bazar: { en: "Bazar", bn: "বাজার" },
+  personal: { en: "Personal", bn: "ব্যক্তিগত" },
+  business: { en: "Business", bn: "বিজনেস" },
+  chooseMode: { en: "Choose Mode", bn: "মোড নির্বাচন করুন" },
+  switchMode: { en: "Switch Mode", bn: "মোড পরিবর্তন" },
+  bazar: { en: "Expenses", bn: "ব্যক্তিগত খরচ" },
   bills: { en: "Bills", bn: "বিলসমূহ" },
   school: { en: "School", bn: "শিক্ষা" },
   loans: { en: "Loans", bn: "ঋণ" },
@@ -254,7 +274,6 @@ export const UI_STRINGS = {
   remarks: { en: "Remarks", bn: "মন্তব্য" },
   save: { en: "Save", bn: "সংরক্ষণ করুন" },
   cancel: { en: "Cancel", bn: "বাতিল করুন" },
-  business: { en: "Business", bn: "ব্যবসা" },
 };
 
 export const BUSINESS_PRODUCTS = [

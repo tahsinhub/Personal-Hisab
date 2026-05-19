@@ -115,7 +115,7 @@ export const Bazar: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-3xl font-black text-slate-900 tracking-tight">{t.bazar[lang]}</h2>
-          <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">{lang === 'en' ? 'Weekly Shopping List' : 'সাপ্তাহিক বাজার তালিকা'}</p>
+          <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] mt-1">{lang === 'en' ? 'Track your daily expenses' : 'দৈনন্দিন সকল খরচের হিসাব রাখুন'}</p>
         </div>
 
         <div className="flex p-1 bg-white rounded-2xl shadow-sm border border-slate-100">
@@ -461,7 +461,7 @@ export const Bazar: React.FC = () => {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h4 className="font-black text-slate-900 leading-tight">
-                       {lang === 'en' ? 'Bazar Shopping' : 'বাজার খরচ'}
+                       {lang === 'en' ? 'Personal Expense' : 'ব্যক্তিগত খরচ'}
                     </h4>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
                       {new Date(log.date as any).toLocaleDateString()} at {new Date(log.date as any).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

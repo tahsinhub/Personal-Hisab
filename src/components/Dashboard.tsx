@@ -261,8 +261,8 @@ export const Dashboard: React.FC = () => {
               {currentMonthBazar.map((log, i) => (
                 <tr key={`bazar-${i}`} className="text-xs font-bold border-b">
                   <td className="p-3 border">{new Date(log.date as any).toLocaleDateString()}</td>
-                  <td className="p-3 border">Bazar</td>
-                  <td className="p-3 border text-slate-400 italic">Weekly Bazar Shopping</td>
+                  <td className="p-3 border">{t.bazar[lang]}</td>
+                  <td className="p-3 border text-slate-400 italic">{lang === 'en' ? 'Daily Expense' : 'দৈনিক খরচ'}</td>
                   <td className="p-3 text-right border font-black">{formatCurrency(log.totalAmount)}</td>
                 </tr>
               ))}
