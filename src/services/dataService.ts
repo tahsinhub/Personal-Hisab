@@ -1,6 +1,6 @@
 import { BazarLog, Bill, EducationExpense, Loan, Income } from '../types';
 
-type StorageKey = 'incomes' | 'bazar_logs' | 'bills' | 'education_expenses' | 'loans' | 'custom_bazar_items' | 'business_customers' | 'business_sales' | 'business_products' | 'activity_logs';
+type StorageKey = 'incomes' | 'bazar_logs' | 'bills' | 'education_expenses' | 'loans' | 'custom_bazar_items' | 'business_customers' | 'business_sales' | 'business_products' | 'activity_logs' | 'business_payments';
 
 export const dataService = {
   // Simple state management via listeners
@@ -86,7 +86,7 @@ export const dataService = {
 
   // Backup & Restore
   exportData: () => {
-    const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items', 'business_customers', 'business_sales', 'business_products', 'activity_logs'];
+    const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items', 'business_customers', 'business_sales', 'business_products', 'activity_logs', 'business_payments'];
     const backup: Record<string, any> = {};
     keys.forEach(k => {
       backup[k] = dataService.getRawCollection(k);
@@ -104,7 +104,7 @@ export const dataService = {
   importData: (jsonString: string) => {
     try {
       const backup = JSON.parse(jsonString);
-      const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items', 'business_customers', 'business_sales', 'business_products', 'activity_logs'];
+      const keys: StorageKey[] = ['incomes', 'bazar_logs', 'bills', 'education_expenses', 'loans', 'custom_bazar_items', 'business_customers', 'business_sales', 'business_products', 'activity_logs', 'business_payments'];
       keys.forEach(k => {
         if (backup[k]) {
           dataService.saveCollection(k, backup[k]);

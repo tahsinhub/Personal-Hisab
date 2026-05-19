@@ -124,3 +124,14 @@ export interface ActivityLog {
   details: string;
   timestamp: Date;
 }
+
+export interface BusinessPayment {
+  id: string;
+  customerId: string;
+  customerName: string;
+  amount: number;
+  paymentMethod: 'Cash' | 'Bank' | 'Mobile Banking';
+  bankAccountNumber?: string;
+  date: Date;
+  remarks?: string;
+}

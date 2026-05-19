@@ -27,7 +27,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
-import { BusinessCustomer, BusinessSale, BusinessProduct, ActivityLog } from '../types';
+import { BusinessCustomer, BusinessSale, BusinessProduct, ActivityLog, BusinessPayment } from '../types';
 import { BUSINESS_PRODUCTS as DEFAULT_PRODUCTS, BUSINESS_UNITS } from '../constants';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -37,6 +37,7 @@ const Business = () => {
   const [lang, setLang] = useState(dataService.getLanguage());
   const [customers, setCustomers] = useState<BusinessCustomer[]>([]);
   const [sales, setSales] = useState<BusinessSale[]>([]);
+  const [payments, setPayments] = useState<BusinessPayment[]>([]);
   const [products, setProducts] = useState<BusinessProduct[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,6 +45,7 @@ const Business = () => {
   
   // Modals / Forms
   const [showAddSale, setShowAddSale] = useState(false);
+  const [showAddPayment, setShowAddPayment] = useState(false);
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showRestock, setShowRestock] = useState<string | null>(null);
@@ -74,6 +76,16 @@ const Business = () => {
     adjustmentQuantity: 0,
     adjustmentAmount: 0
   });
+
+  const [newPayment, setNewPayment] = useState<Partial<BusinessPayment>>({
+    customerId: '',
+    customerName: '',
+    amount: 0,
+    paymentMethod: 'Cash',
+    bankAccountNumber: '',
+    remarks: '',
+    date: new Date()
+  });
   
   const [newCustomer, setNewCustomer] = useState({
     name: '',
@@ -90,6 +102,7 @@ const Business = () => {
   useEffect(() => {
     const unsubCustomers = dataService.subscribeToCollection<BusinessCustomer>('business_customers', setCustomers);
     const unsubSales = dataService.subscribeToCollection<BusinessSale>('business_sales', setSales);
+    const unsubPayments = dataService.subscribeToCollection<BusinessPayment>('business_payments', setPayments);
     const unsubProducts = dataService.subscribeToCollection<BusinessProduct>('business_products', (data) => {
       if (data.length === 0) {
         // Initialize with default products if empty
@@ -108,6 +121,7 @@ const Business = () => {
     return () => {
       unsubCustomers();
       unsubSales();
+      unsubPayments();
       unsubProducts();
       unsubLogs();
     };
@@ -318,6 +332,58 @@ const Business = () => {
       const netQuantity = (sale.quantity || 0) - (sale.adjustmentQuantity || 0);
       await dataService.updateDocument('business_products', product.id, {
         stock: (product.stock || 0) + netQuantity
+      });
+    }
+  };
+
+  const handleAddPayment = async () => {
+    if (!newPayment.customerId || !newPayment.amount) return;
+
+    const customer = customers.find(c => c.id === newPayment.customerId);
+    const payment: BusinessPayment = {
+      id: Date.now().toString(),
+      customerId: newPayment.customerId,
+      customerName: customer?.name || '',
+      amount: newPayment.amount || 0,
+      paymentMethod: newPayment.paymentMethod as any,
+      bankAccountNumber: newPayment.bankAccountNumber,
+      date: new Date(newPayment.date || Date.now()),
+      remarks: newPayment.remarks
+    };
+
+    await dataService.addDocument('business_payments', payment);
+    dataService.logActivity('create', 'Business Payment', `Recorded payment from ${customer?.name}: ৳${payment.amount}`);
+
+    // Update customer due
+    if (customer) {
+      await dataService.updateDocument('business_customers', customer.id, {
+        totalDue: Math.max(0, (customer.totalDue || 0) - (payment.amount || 0))
+      });
+    }
+
+    setShowAddPayment(false);
+    setNewPayment({
+      customerId: '',
+      customerName: '',
+      amount: 0,
+      paymentMethod: 'Cash',
+      bankAccountNumber: '',
+      remarks: '',
+      date: new Date()
+    });
+  };
+
+  const handleDeletePayment = async (payment: BusinessPayment) => {
+    if (!window.confirm(lang === 'en' ? 'Are you sure?' : 'আপনি কি নিশ্চিত?')) return;
+
+    await dataService.deleteDocument('business_payments', payment.id);
+    dataService.logActivity('delete', 'Business Payment', `Deleted payment record for ${payment.customerName}: ৳${payment.amount}`);
+
+    // Update customer due
+    const customer = customers.find(c => c.id === payment.customerId);
+    if (customer) {
+      await dataService.updateDocument('business_customers', customer.id, {
+        totalDue: (customer.totalDue || 0) + payment.amount
       });
     }
   };
@@ -647,9 +713,21 @@ const Business = () => {
                         )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{lang === 'en' ? 'Balance Due' : 'বকেয়া ব্যালেন্স'}</p>
-                      <p className="text-lg font-black text-rose-600">৳{customer.totalDue.toLocaleString()}</p>
+                    <div className="text-right flex items-center gap-4">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{lang === 'en' ? 'Balance Due' : 'বকেয়া ব্যালেন্স'}</p>
+                        <p className="text-lg font-black text-rose-600">৳{customer.totalDue.toLocaleString()}</p>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setNewPayment({ ...newPayment, customerId: customer.id });
+                          setShowAddPayment(true);
+                        }}
+                        className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm shadow-rose-100"
+                        title={lang === 'en' ? 'Record Payment' : 'পেমেন্ট জমা নিন'}
+                      >
+                        <ArrowRight className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
                 ))
@@ -704,7 +782,19 @@ const Business = () => {
                     )}
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'en' ? 'Dues' : 'বকেয়া'}</span>
-                      <span className="text-sm font-black text-rose-600">৳{customer.totalDue}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-black text-rose-600">৳{customer.totalDue}</span>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewPayment({ ...newPayment, customerId: customer.id });
+                            setShowAddPayment(true);
+                          }}
+                          className="p-1 px-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all"
+                        >
+                          {lang === 'en' ? 'Pay' : 'জমা'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1267,6 +1357,109 @@ const Business = () => {
         )}
       </AnimatePresence>
       <AnimatePresence>
+        {showAddPayment && (
+          <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowAddPayment(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ y: 100, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 100, opacity: 0 }}
+              className="relative w-full max-w-lg bg-white rounded-[40px] shadow-2xl p-6 md:p-8 overflow-hidden max-h-[90vh] overflow-y-auto"
+            >
+              <div className="flex items-center gap-4 mb-8">
+                <button 
+                  onClick={() => setShowAddPayment(false)}
+                  className="md:hidden p-2 -ml-2 text-slate-400 bg-slate-50 border border-slate-100 rounded-xl"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="p-4 bg-rose-50 text-rose-600 rounded-3xl">
+                  <ArrowDownCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight">{lang === 'en' ? 'Record Payment' : 'পেমেন্ট জমা নিন'}</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'en' ? 'Recovery from customer' : 'কাস্টমার থেকে বকেয়া আদায়'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'en' ? 'Customer' : 'কাস্টমার'}</label>
+                  <select 
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-rose-500 transition-all appearance-none"
+                    value={newPayment.customerId}
+                    onChange={(e) => setNewPayment({ ...newPayment, customerId: e.target.value })}
+                  >
+                    <option value="">{lang === 'en' ? 'Select Customer' : 'কাস্টমার সিলেক্ট করুন'}</option>
+                    {customers.map(c => (
+                      <option key={c.id} value={c.id}>{c.name} (Due: ৳{c.totalDue})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'en' ? 'Amount Received' : 'জমার পরিমাণ'}</label>
+                  <input 
+                    type="number"
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-rose-500 transition-all text-2xl text-rose-600"
+                    placeholder="0.00"
+                    value={newPayment.amount || ''}
+                    onChange={e => setNewPayment({ ...newPayment, amount: Number(e.target.value) })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'en' ? 'Method' : 'মাধ্যম'}</label>
+                    <select 
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-rose-500 transition-all appearance-none"
+                      value={newPayment.paymentMethod}
+                      onChange={e => setNewPayment({ ...newPayment, paymentMethod: e.target.value as any })}
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Bank">Bank Transfer</option>
+                      <option value="Mobile Banking">Bkash / Nagad</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'en' ? 'Date' : 'তারিখ'}</label>
+                    <input 
+                      type="date"
+                      className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-rose-500 transition-all"
+                      value={newPayment.date ? new Date(newPayment.date).toISOString().split('T')[0] : ''}
+                      onChange={e => setNewPayment({ ...newPayment, date: new Date(e.target.value) })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{lang === 'en' ? 'Remarks' : 'মন্তব্য'}</label>
+                  <textarea 
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl p-4 font-bold outline-none focus:border-rose-500 transition-all"
+                    placeholder={lang === 'en' ? "Optional notes..." : "ঐচ্ছিক মন্তব্য..."}
+                    value={newPayment.remarks}
+                    onChange={e => setNewPayment({ ...newPayment, remarks: e.target.value })}
+                  />
+                </div>
+
+                <button 
+                  onClick={handleAddPayment}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-5 rounded-[28px] transition-all shadow-xl shadow-slate-100 uppercase tracking-widest text-xs"
+                >
+                  {lang === 'en' ? 'Record Payment' : 'পেমেন্ট এন্ট্রি দিন'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
         {selectedCustomerId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div 
@@ -1315,56 +1508,96 @@ const Business = () => {
 
               <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
                 <div className="space-y-4">
-                  {sales.filter(s => s.customerId === selectedCustomerId).length === 0 ? (
-                    <div className="py-20 text-center">
-                      <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{lang === 'en' ? 'No transactions found' : 'কোনো লেনদেন পাওয়া যায়নি'}</p>
-                    </div>
-                  ) : (
-                    sales
-                      .filter(s => s.customerId === selectedCustomerId)
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .map(sale => (
-                        <div key={sale.id} className="p-6 rounded-3xl border border-slate-100 bg-slate-50/30 print-card">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <h5 className="font-black text-slate-900 uppercase tracking-tight">{sale.productName}</h5>
-                              <p className="text-[10px] font-bold text-slate-400">{new Date(sale.date).toLocaleDateString()} {new Date(sale.date).toLocaleTimeString()}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-lg font-black text-slate-900">৳{sale.totalAmount}</p>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{sale.quantity} {sale.unit} @ ৳{sale.salePrice}</p>
-                            </div>
-                          </div>
-                          
-                          {sale.remarks && (
-                            <div className="mb-4 p-3 bg-white/50 rounded-xl border border-slate-100 italic text-[10px] text-slate-500">
-                               "{sale.remarks}"
-                            </div>
-                          )}
-
-                          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
-                             <div className="flex gap-2">
-                                <span className={cn(
-                                  "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
-                                  sale.dueAmount > 0 ? "bg-rose-100 text-rose-600" : "bg-teal-100 text-teal-600"
-                                )}>
-                                  {sale.dueAmount > 0 ? (lang === 'en' ? `Due: ৳${sale.dueAmount}` : `বকেয়া: ৳${sale.dueAmount}`) : (lang === 'en' ? 'Full Paid' : 'সম্পূর্ণ পরিশোধ')}
-                                </span>
-                                {sale.paymentMethod && (
-                                  <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[8px] font-black uppercase tracking-widest">
-                                    {sale.paymentMethod}
-                                  </span>
-                                )}
-                             </div>
-                             {sale.paidAmount > 0 && (
-                               <p className="text-[10px] font-bold text-slate-500">
-                                 {lang === 'en' ? 'Paid' : 'পরিশোধ'}: ৳{sale.paidAmount}
-                               </p>
-                             )}
-                          </div>
+                  {(() => {
+                    const customerSales = sales.filter(s => s.customerId === selectedCustomerId).map(s => ({ ...s, ledgerType: 'sale' as const }));
+                    const customerPayments = payments.filter(p => p.customerId === selectedCustomerId).map(p => ({ ...p, ledgerType: 'payment' as const }));
+                    const ledgerItems = [...customerSales, ...customerPayments].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                    
+                    if (ledgerItems.length === 0) {
+                      return (
+                        <div className="py-20 text-center">
+                          <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{lang === 'en' ? 'No transactions found' : 'কোনো লেনদেন পাওয়া যায়নি'}</p>
                         </div>
-                      ))
-                  )}
+                      );
+                    }
+
+                    return ledgerItems.map((item) => {
+                      if (item.ledgerType === 'sale') {
+                        const sale = item as any as BusinessSale;
+                        return (
+                          <div key={`sale-${sale.id}`} className="p-6 rounded-3xl border border-slate-100 bg-slate-50/30 print-card">
+                            <div className="flex justify-between items-start mb-4">
+                              <div>
+                                <h5 className="font-black text-slate-900 uppercase tracking-tight">{sale.productName}</h5>
+                                <p className="text-[10px] font-bold text-slate-400">{new Date(sale.date).toLocaleDateString()} {new Date(sale.date).toLocaleTimeString()}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-lg font-black text-slate-900">৳{sale.totalAmount}</p>
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{sale.quantity} {sale.unit} @ ৳{sale.salePrice}</p>
+                              </div>
+                            </div>
+                            
+                            {sale.remarks && (
+                              <div className="mb-4 p-3 bg-white/50 rounded-xl border border-slate-100 italic text-[10px] text-slate-500">
+                                 "{sale.remarks}"
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                               <div className="flex gap-2">
+                                  <span className={cn(
+                                    "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                    sale.dueAmount > 0 ? "bg-rose-100 text-rose-600" : "bg-teal-100 text-teal-600"
+                                  )}>
+                                    {sale.dueAmount > 0 ? (lang === 'en' ? `Due: ৳${sale.dueAmount}` : `বকেয়া: ৳${sale.dueAmount}`) : (lang === 'en' ? 'Full Paid' : 'সম্পূর্ণ পরিশোধ')}
+                                  </span>
+                                  {sale.paymentMethod && (
+                                    <span className="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-[8px] font-black uppercase tracking-widest">
+                                      {sale.paymentMethod}
+                                    </span>
+                                  )}
+                               </div>
+                               {sale.paidAmount > 0 && (
+                                 <p className="text-[10px] font-bold text-slate-500">
+                                   {lang === 'en' ? 'Paid' : 'পরিশোধ'}: ৳{sale.paidAmount}
+                                 </p>
+                               )}
+                            </div>
+                          </div>
+                        );
+                      } else {
+                        const payment = item as any as BusinessPayment;
+                        return (
+                          <div key={`payment-${payment.id}`} className="p-6 rounded-3xl border border-teal-100 bg-teal-50/20 print-card group">
+                            <div className="flex justify-between items-start">
+                               <div>
+                                 <div className="flex items-center gap-2">
+                                   <h5 className="font-black text-teal-600 uppercase tracking-tight flex items-center gap-2">
+                                     <ArrowDownCircle className="w-4 h-4" />
+                                     {lang === 'en' ? 'Payment Received' : 'পেমেন্ট জমা'}
+                                   </h5>
+                                   <button 
+                                     onClick={() => handleDeletePayment(payment)}
+                                     className="p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all no-print"
+                                   >
+                                     <Trash2 className="w-3 h-3" />
+                                   </button>
+                                 </div>
+                                 <p className="text-[10px] font-bold text-slate-400">{new Date(payment.date).toLocaleDateString()} {new Date(payment.date).toLocaleTimeString()}</p>
+                               </div>
+                               <div className="text-right">
+                                 <p className="text-lg font-black text-teal-600">৳{payment.amount}</p>
+                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{payment.paymentMethod}</p>
+                               </div>
+                            </div>
+                            {payment.remarks && (
+                              <p className="mt-2 text-[10px] font-bold text-slate-600 italic">"{payment.remarks}"</p>
+                            )}
+                          </div>
+                        );
+                      }
+                    });
+                  })()}
                 </div>
               </div>
 
