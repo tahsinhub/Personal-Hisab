@@ -34,3 +34,32 @@
     background: #cbd5e1;
   }
 }
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .print-container {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 20px !important;
+    margin: 0 !important;
+  }
+  .print-card {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}
+
+.print-only {
+  display: none;
+}

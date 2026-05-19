@@ -110,6 +110,7 @@ export interface BusinessSale {
   paidAmount: number;
   dueAmount: number;
   paymentMethod?: 'Cash' | 'Bank' | 'Mobile Banking';
+  bankAccountNumber?: string;
   date: Date;
   adjustmentQuantity?: number; // Sample/Return quantity
   adjustmentAmount?: number;   // Deduction amount

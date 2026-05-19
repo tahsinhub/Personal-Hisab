@@ -117,6 +117,11 @@ export const dataService = {
     }
   },
 
+  resetAllData: () => {
+    localStorage.clear();
+    window.location.reload();
+  },
+
   // Auth & Language State
   getAuthState: () => {
     const state = localStorage.getItem('humaid_corner_auth_state');

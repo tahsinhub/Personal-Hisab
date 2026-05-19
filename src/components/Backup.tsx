@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { UI_STRINGS } from '../constants';
+import { cn } from '../lib/utils';
 
 export const Backup: React.FC = () => {
   const lang = dataService.getLanguage() as 'en' | 'bn';
@@ -37,11 +38,15 @@ export const Backup: React.FC = () => {
     reader.readAsText(file);
   };
 
+  const [confirmReset, setConfirmReset] = React.useState(false);
+
   const clearAllData = () => {
-    if (confirm(lang === 'en' ? 'Are you sure? This will delete ALL local data!' : 'আপনি কি নিশ্চিত? এটি আপনার সকল তথ্য মুছে ফেলবে!')) {
-      localStorage.clear();
-      window.location.reload();
+    if (!confirmReset) {
+      setConfirmReset(true);
+      setTimeout(() => setConfirmReset(false), 3000); // Reset button state after 3s
+      return;
     }
+    dataService.resetAllData();
   };
 
   return (
@@ -161,10 +166,15 @@ export const Backup: React.FC = () => {
 
           <button 
             onClick={clearAllData}
-            className="w-full py-5 bg-rose-50 text-rose-600 font-black rounded-3xl hover:bg-rose-100 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs"
+            className={cn(
+              "w-full py-5 font-black rounded-3xl transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-xs",
+              confirmReset ? "bg-rose-600 text-white animate-pulse" : "bg-rose-50 text-rose-600 hover:bg-rose-100"
+            )}
           >
             <RotateCcw className="w-5 h-5" />
-            Reset Application
+            {confirmReset 
+              ? (lang === 'en' ? 'Click Again to Confirm!' : 'নিশ্চিত করতে আবার ক্লিক করুন!')
+              : (lang === 'en' ? 'Reset Application' : 'অ্যাপ রিসেট করুন')}
           </button>
         </div>
       </div>

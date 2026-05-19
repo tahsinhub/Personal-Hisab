@@ -18,7 +18,12 @@ import {
   History,
   Package,
   ArrowDownCircle,
-  AlertCircle
+  AlertCircle,
+  RefreshCw,
+  Printer,
+  Building2,
+  Smartphone,
+  FileText
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { BusinessCustomer, BusinessSale, BusinessProduct, ActivityLog } from '../types';
@@ -42,6 +47,7 @@ const Business = () => {
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showRestock, setShowRestock] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState({ start: '', end: '' });
   const [restockAmount, setRestockAmount] = useState({ quantity: 1, unit: 'drum' });
   
   const [newSale, setNewSale] = useState<Partial<BusinessSale>>({
@@ -52,6 +58,8 @@ const Business = () => {
     salePrice: 0,
     paidAmount: 0,
     paymentMethod: 'Cash',
+    bankAccountNumber: '',
+    remarks: '',
     date: new Date(),
     adjustmentQuantity: 0,
     adjustmentAmount: 0
@@ -174,6 +182,23 @@ const Business = () => {
     await dataService.deleteDocument('business_products', productId);
     dataService.logActivity('delete', 'Business Product', `Deleted product: ${product.name}`);
   };
+  
+  const handleDeleteCustomer = async (customerId: string) => {
+    const customer = customers.find(c => c.id === customerId);
+    if (!customer) return;
+    
+    // Check if customer has any sales
+    const hasSales = sales.some(s => s.customerId === customerId);
+    if (hasSales) {
+      alert(lang === 'en' ? 'Cannot delete customer with transaction history!' : 'লেনদেনের ইতিহাস আছে এমন কাস্টমার মুছে ফেলা সম্ভব নয়!');
+      return;
+    }
+    
+    if (!window.confirm(lang === 'en' ? 'Delete this customer?' : 'কাস্টমারটি মুছে ফেলতে চান?')) return;
+    
+    await dataService.deleteDocument('business_customers', customerId);
+    dataService.logActivity('delete', 'Business Customer', `Deleted customer: ${customer.name}`);
+  };
 
   const convertToKg = (qty: number, unit: string): number => {
     const u = unit.toLowerCase();
@@ -221,6 +246,7 @@ const Business = () => {
       paidAmount: newSale.paidAmount || 0,
       dueAmount,
       paymentMethod: newSale.paymentMethod as any,
+      bankAccountNumber: newSale.bankAccountNumber,
       adjustmentQuantity: newSale.adjustmentQuantity,
       adjustmentAmount: newSale.adjustmentAmount,
       date: new Date(newSale.date || Date.now()), // Handle string from input
@@ -254,6 +280,8 @@ const Business = () => {
       salePrice: 0,
       paidAmount: 0,
       paymentMethod: 'Cash',
+      bankAccountNumber: '',
+      remarks: '',
       date: new Date(),
       adjustmentQuantity: 0,
       adjustmentAmount: 0
@@ -292,7 +320,12 @@ const Business = () => {
     const matchesSearch = s.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           s.productName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesUnit = filterUnit === 'All' || s.unit === filterUnit;
-    return matchesSearch && matchesUnit;
+    
+    const saleDate = new Date(s.date);
+    const matchesStartDate = !dateFilter.start || saleDate >= new Date(dateFilter.start);
+    const matchesEndDate = !dateFilter.end || saleDate <= new Date(dateFilter.end + 'T23:59:59');
+    
+    return matchesSearch && matchesUnit && matchesStartDate && matchesEndDate;
   });
 
   const filteredCustomers = customers.filter(c => 
@@ -402,21 +435,52 @@ const Business = () => {
         </div>
       </div>
 
-      {/* Unit Sorting / Filtering */}
+      {/* Unit Sorting / Filtering & Date Filters */}
       {activeTab === 'sales' && (
-        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-          {['All', ...BUSINESS_UNITS].map(unit => (
-            <button
-              key={unit}
-              onClick={() => setFilterUnit(unit)}
-              className={cn(
-                "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
-                filterUnit === unit ? "bg-slate-900 text-white" : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
-              )}
+        <div className="flex flex-col gap-4 no-print">
+          <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+            {['All', ...BUSINESS_UNITS].map(unit => (
+              <button
+                key={unit}
+                onClick={() => setFilterUnit(unit)}
+                className={cn(
+                  "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                  filterUnit === unit ? "bg-slate-900 text-white" : "bg-white text-slate-400 border border-slate-100 hover:bg-slate-50"
+                )}
+              >
+                {unit === 'All' ? (lang === 'en' ? 'All Units' : 'সব ইউনিট') : unit}
+              </button>
+            ))}
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-[28px] border border-slate-100 shadow-sm">
+            <div className="flex items-center gap-2">
+               <Calendar className="w-4 h-4 text-slate-400" />
+               <input 
+                 type="date"
+                 className="bg-slate-50 border border-slate-100 rounded-xl p-2 text-[10px] font-bold outline-none"
+                 value={dateFilter.start}
+                 onChange={e => setDateFilter({ ...dateFilter, start: e.target.value })}
+               />
+               <span className="text-slate-300 font-bold">→</span>
+               <input 
+                 type="date"
+                 className="bg-slate-50 border border-slate-100 rounded-xl p-2 text-[10px] font-bold outline-none"
+                 value={dateFilter.end}
+                 onChange={e => setDateFilter({ ...dateFilter, end: e.target.value })}
+               />
+            </div>
+            
+            <div className="flex-1" />
+
+            <button 
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-6 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all shadow-sm shadow-slate-100"
             >
-              {unit === 'All' ? (lang === 'en' ? 'All Units' : 'সব ইউনিট') : unit}
+              <Printer className="w-4 h-4" />
+              {lang === 'en' ? 'Print Report' : 'রিপোর্ট প্রিন্ট'}
             </button>
-          ))}
+          </div>
         </div>
       )}
 
@@ -468,6 +532,24 @@ const Business = () => {
                         <p className="font-black text-slate-900">৳{sale.totalAmount}</p>
                       </div>
                     </div>
+
+                    {(sale.remarks || sale.paymentMethod) && (
+                      <div className="mt-4 p-3 bg-slate-50 rounded-2xl space-y-2">
+                        {sale.paymentMethod && (
+                          <div className="flex items-center gap-2 text-[8px] font-black uppercase tracking-widest text-slate-500">
+                             {sale.paymentMethod === 'Cash' ? <CreditCard className="w-3 h-3" /> :
+                              sale.paymentMethod === 'Bank' ? <Building2 className="w-3 h-3" /> : <Smartphone className="w-3 h-3" />}
+                             {sale.paymentMethod} {sale.bankAccountNumber ? `(${sale.bankAccountNumber})` : ''}
+                          </div>
+                        )}
+                        {sale.remarks && (
+                          <div className="flex items-start gap-2">
+                             <FileText className="w-3 h-3 text-slate-400 mt-0.5 shrink-0" />
+                             <p className="text-[10px] font-bold text-slate-600 italic line-clamp-2">{sale.remarks}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <div className="mt-4 flex items-center justify-between">
                       <div className={cn(
@@ -539,8 +621,23 @@ const Business = () => {
               </div>
             ) : (
               filteredCustomers.map(customer => (
-                <div key={customer.id} onClick={() => setSelectedCustomerId(customer.id)} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                  <div className="flex items-center gap-4 mb-4">
+                <div key={customer.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-md transition-all cursor-pointer relative">
+                  <div className="absolute top-6 right-6 flex gap-2 no-print">
+                     { !sales.some(s => s.customerId === customer.id) && (
+                       <button 
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           handleDeleteCustomer(customer.id);
+                         }}
+                         className="p-2 text-slate-300 hover:text-rose-500 rounded-xl hover:bg-rose-50"
+                       >
+                         <Trash2 className="w-4 h-4" />
+                       </button>
+                     )}
+                     <ChevronRight className="w-5 h-5 text-slate-300" onClick={() => setSelectedCustomerId(customer.id)} />
+                  </div>
+                  
+                  <div onClick={() => setSelectedCustomerId(customer.id)} className="flex items-center gap-4 mb-4">
                     <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl">
                       {customer.name[0].toUpperCase()}
                     </div>
@@ -548,7 +645,6 @@ const Business = () => {
                       <h4 className="font-black text-slate-900 text-lg uppercase tracking-tight">{customer.name}</h4>
                       <p className="text-[10px] font-bold text-slate-400">{lang === 'en' ? 'Member since' : 'সদস্য হয়েছেন'}: {new Date(customer.createdAt).toLocaleDateString()}</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-slate-300" />
                   </div>
                   
                   <div className="space-y-3 pt-4 border-t border-slate-50">
@@ -820,26 +916,51 @@ const Business = () => {
                     </div>
 
                     { (newSale.paidAmount || 0) > 0 && (
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest ml-1">{lang === 'en' ? 'Payment Method' : 'পেমেন্ট মাধ্যম'}</label>
-                        <div className="flex gap-2">
-                          {['Cash', 'Bank', 'Mobile Banking'].map(method => (
-                            <button
-                              key={method}
-                              onClick={() => setNewSale({ ...newSale, paymentMethod: method as any })}
-                              className={cn(
-                                "flex-1 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all",
-                                newSale.paymentMethod === method ? "bg-white text-slate-900 shadow-lg" : "bg-white/5 text-white/40 hover:bg-white/10"
-                              )}
-                            >
-                              {method === 'Cash' ? (lang === 'en' ? 'Cash' : 'ক্যাশ') : 
-                               method === 'Bank' ? (lang === 'en' ? 'Bank' : 'ব্যাংক') : 
-                               (lang === 'en' ? 'Mobile' : 'মোবাইল')}
-                            </button>
-                          ))}
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-widest ml-1">{lang === 'en' ? 'Payment Method' : 'পেমেন্ট মাধ্যম'}</label>
+                          <div className="flex gap-2">
+                            {['Cash', 'Bank', 'Mobile Banking'].map(method => (
+                              <button
+                                key={method}
+                                onClick={() => setNewSale({ ...newSale, paymentMethod: method as any })}
+                                className={cn(
+                                  "flex-1 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest transition-all",
+                                  newSale.paymentMethod === method ? "bg-white text-slate-900 shadow-lg" : "bg-white/5 text-white/40 hover:bg-white/10"
+                                )}
+                              >
+                                {method === 'Cash' ? (lang === 'en' ? 'Cash' : 'ক্যাশ') : 
+                                 method === 'Bank' ? (lang === 'en' ? 'Bank' : 'ব্যাংক') : 
+                                 (lang === 'en' ? 'Mobile' : 'মোবাইল')}
+                              </button>
+                            ))}
+                          </div>
                         </div>
+
+                        {newSale.paymentMethod === 'Bank' && (
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest ml-1">{lang === 'en' ? 'Bank Account Number' : 'ব্যাংক অ্যাকাউন্ট নম্বর'}</label>
+                            <input 
+                              type="text"
+                              className="w-full bg-white/10 border-2 border-white/10 rounded-xl p-3 font-bold outline-none focus:border-white/30 transition-all text-white placeholder:text-white/40"
+                              value={newSale.bankAccountNumber}
+                              onChange={e => setNewSale({ ...newSale, bankAccountNumber: e.target.value })}
+                              placeholder={lang === 'en' ? "Enter account number" : "অ্যাকাউন্ট নম্বর দিন"}
+                            />
+                          </div>
+                        )}
                       </div>
                     )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest ml-1 text-white/60">{lang === 'en' ? 'Note / Remarks' : 'নোট / মন্তব্য'}</label>
+                    <textarea 
+                      className="w-full bg-white/5 border-2 border-white/10 rounded-xl p-3 text-xs font-bold outline-none focus:border-white/30 transition-all text-white min-h-[60px]"
+                      value={newSale.remarks}
+                      onChange={e => setNewSale({ ...newSale, remarks: e.target.value })}
+                      placeholder={lang === 'en' ? "Any specific details..." : "বিশেষ কোনো তথ্য..."}
+                    />
                   </div>
                   
                   <div className="flex justify-between items-center text-rose-400">
@@ -1098,7 +1219,16 @@ const Business = () => {
                   </div>
                   <div>
                     <h3 className="text-2xl font-black text-slate-900 tracking-tight">{customers.find(c => c.id === selectedCustomerId)?.name}</h3>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'en' ? 'Sales History' : 'বিক্রয় ইতিহাস'}</p>
+                    <div className="flex items-center gap-4">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{lang === 'en' ? 'Sales History' : 'বিক্রয় ইতিহাস'}</p>
+                      <button 
+                        onClick={() => window.print()}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all no-print"
+                      >
+                        <Printer className="w-3 h-3" />
+                        {lang === 'en' ? 'Print' : 'প্রিন্ট'}
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
@@ -1118,7 +1248,7 @@ const Business = () => {
                       .filter(s => s.customerId === selectedCustomerId)
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                       .map(sale => (
-                        <div key={sale.id} className="p-6 rounded-3xl border border-slate-100 bg-slate-50/30">
+                        <div key={sale.id} className="p-6 rounded-3xl border border-slate-100 bg-slate-50/30 print-card">
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <h5 className="font-black text-slate-900 uppercase tracking-tight">{sale.productName}</h5>
@@ -1130,6 +1260,12 @@ const Business = () => {
                             </div>
                           </div>
                           
+                          {sale.remarks && (
+                            <div className="mb-4 p-3 bg-white/50 rounded-xl border border-slate-100 italic text-[10px] text-slate-500">
+                               "{sale.remarks}"
+                            </div>
+                          )}
+
                           <div className="flex items-center justify-between pt-4 border-t border-slate-100">
                              <div className="flex gap-2">
                                 <span className={cn(
@@ -1166,6 +1302,71 @@ const Business = () => {
           </div>
         )}
       </AnimatePresence>
+      {/* Print View Only */}
+      <div className="print-only print-container">
+        <div className="mb-10 text-center border-b-2 border-slate-900 pb-6">
+          <h1 className="text-4xl font-black text-slate-900 uppercase tracking-tighter mb-2">
+            {lang === 'en' ? 'Business Sales Report' : 'ব্যবসা বিক্রয় রিপোর্ট'}
+          </h1>
+          <div className="flex justify-center gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+            {dateFilter.start && <span>{lang === 'en' ? 'From' : 'থেকে'}: {dateFilter.start}</span>}
+            {dateFilter.end && <span>{lang === 'en' ? 'To' : 'পর্যন্ত'}: {dateFilter.end}</span>}
+            {!dateFilter.start && !dateFilter.end && <span>{lang === 'en' ? 'All Time' : 'সব সময়ের পোর্ট'}</span>}
+            <span>•</span>
+            <span>{new Date().toLocaleDateString()}</span>
+          </div>
+        </div>
+
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b-2 border-slate-200">
+              <th className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Date' : 'তারিখ'}</th>
+              <th className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Customer' : 'কাস্টমার'}</th>
+              <th className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Product' : 'পণ্য'}</th>
+              <th className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{lang === 'en' ? 'Quantity' : 'পরিমাণ'}</th>
+              <th className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">{lang === 'en' ? 'Total' : 'মোট'}</th>
+              <th className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">{lang === 'en' ? 'Paid' : 'পরিশোধ'}</th>
+              <th className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">{lang === 'en' ? 'Due' : 'বাকি'}</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filteredSales.map(sale => (
+              <tr key={sale.id}>
+                <td className="py-4 text-[10px] font-bold text-slate-600">{new Date(sale.date).toLocaleDateString()}</td>
+                <td className="py-4 text-[10px] font-black text-slate-900 border-l border-slate-50 pl-4">{sale.customerName}</td>
+                <td className="py-4 text-[10px] font-bold text-slate-600">{sale.productName}</td>
+                <td className="py-4 text-[10px] font-bold text-slate-600">{sale.quantity} {sale.unit}</td>
+                <td className="py-4 text-[10px] font-black text-slate-900 text-right">৳{sale.totalAmount}</td>
+                <td className="py-4 text-[10px] font-black text-teal-600 text-right">৳{sale.paidAmount}</td>
+                <td className="py-4 text-[10px] font-black text-rose-600 text-right">৳{sale.dueAmount}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-slate-900 font-black">
+              <td colSpan={4} className="py-6 text-right text-[10px] uppercase tracking-widest">{lang === 'en' ? 'Grand Total' : 'সর্বমোট'}</td>
+              <td className="py-6 text-right text-lg">৳{filteredSales.reduce((acc, s) => acc + s.totalAmount, 0).toLocaleString()}</td>
+              <td className="py-6 text-right text-lg text-teal-600">৳{filteredSales.reduce((acc, s) => acc + s.paidAmount, 0).toLocaleString()}</td>
+              <td className="py-6 text-right text-lg text-rose-600">৳{filteredSales.reduce((acc, s) => acc + s.dueAmount, 0).toLocaleString()}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        {filteredSales.some(s => s.remarks) && (
+          <div className="mt-10 pt-6 border-t border-slate-100">
+             <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">{lang === 'en' ? 'Additional Notes' : 'অতিরিক্ত নোটগুলি'}</h3>
+             <div className="space-y-4">
+                {filteredSales.filter(s => s.remarks).map(s => (
+                  <div key={s.id} className="text-[10px]">
+                    <span className="font-black uppercase tracking-tight text-slate-900">{s.customerName} - {s.productName}: </span>
+                    <span className="italic text-slate-600">{s.remarks}</span>
+                  </div>
+                ))}
+             </div>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 };
